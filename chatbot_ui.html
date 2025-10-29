@@ -1,0 +1,46 @@
+<div id="chatbot" style="max-width:600px;margin:20px auto;border:1px solid #ccc;padding:10px;border-radius:10px;font-family:sans-serif;">
+  <div id="chatbox" style="height:500px;overflow-y:auto;margin-bottom:10px;padding:5px;background:#f9f9f9;border-radius:6px;"></div>
+  <input id="userInput" type="text" placeholder="Type a message..." style="width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;">
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  // 🧠 Persistent session ID
+  let sessionId = localStorage.getItem('chatSessionId');
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem('chatSessionId', sessionId);
+  }
+
+  async function sendMessage() {
+    const userInput = document.getElementById('userInput');
+    const chatbox = document.getElementById('chatbox');
+    const message = userInput.value.trim();
+    if (!message) return;
+
+    chatbox.innerHTML += `<div><b>You:</b> ${message}</div>`;
+    userInput.value = '';
+    chatbox.scrollTop = chatbox.scrollHeight;
+
+    try {
+        const res = await fetch('https://chlorophyllous-renee-unfairly.ngrok-free.dev/webhook/neac-chatbot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, session_id: sessionId })
+        });
+
+        const data = await res.json();
+        const markdown = data.reply || data.output || "Sorry, I didn’t receive a reply.";
+        const reply = marked.parse(markdown); // 🔹 convert Markdown to HTML
+        chatbox.innerHTML += `<div style="margin-top:5px;"><b>Bot:</b> ${reply}</div>`;
+    } catch (err) {
+      console.error('Chatbot error:', err);
+      chatbox.innerHTML += `<div style="color:red;">Error: Could not reach chatbot.</div>`;
+    }
+  }
+
+  document.getElementById('userInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMessage();
+  });
+</script>
