@@ -1,18 +1,80 @@
 <div id="chatbot" style="max-width:600px;margin:20px auto;border:1px solid #ccc;padding:10px;border-radius:10px;font-family:sans-serif;">
-  <div id="chatbox" style="height:500px;overflow-y:auto;margin-bottom:10px;padding:5px;background:#f9f9f9;border-radius:6px;"></div>
-  <input id="userInput" type="text" placeholder="Type a message..." style="width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;">
+  
+  <!-- Chatbox -->
+  <div id="chatbox" style="height:500px;overflow-y:auto;margin-bottom:10px;padding:5px;background:#f9f9f9;border-radius:6px;">
+
+    <!-- PRE-CHAT FORM GOES HERE -->
+    <div id="prechat-form" style="padding:10px;">
+      <h3 style="margin-top:0;">Before we start, please provide your details</h3>
+
+      <label>Email</label>
+      <input id="email" type="email" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid #ccc;border-radius:6px;" required>
+
+      <label>Phone</label>
+      <input id="phone" type="text" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid #ccc;border-radius:6px;" required>
+
+      <label>Profession</label>
+      <input id="profession" type="text" placeholder="e.g., Nurse" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid #ccc;border-radius:6px;" required>
+
+      <label>Service Applying For</label>
+      <select id="service" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid #ccc;border-radius:6px;" required>
+        <option value="">Select One</option>
+        <option value="NCLEX US">NCLEX US</option>
+        <option value="NCLEX Canada">NCLEX Canada</option>
+        <option value="NCLEX Australia">NCLEX Australia</option>
+      </select>
+
+      <button onclick="submitPreChat()" 
+        style="width:100%;padding:10px;background:#1a73e8;color:white;border:none;border-radius:6px;font-size:16px;cursor:pointer;">
+        Start Chat
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Message Input -->
+  <input id="userInput" type="text" placeholder="Type a message..." 
+    style="width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;display:none;">
 </div>
 
-
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 <script>
-  // 🧠 Persistent session ID
+  // 🧠 Session ID
   let sessionId = localStorage.getItem('chatSessionId');
   if (!sessionId) {
     sessionId = crypto.randomUUID();
     localStorage.setItem('chatSessionId', sessionId);
   }
 
+  // 💾 Pre-chat submit
+  function submitPreChat() {
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const profession = document.getElementById('profession').value.trim();
+    const service = document.getElementById('service').value.trim();
+
+    if (!email || !phone || !profession || !service) {
+      alert("Please complete all fields.");
+      return;
+    }
+
+    // Save applicant data locally
+    const applicantData = { email, phone, profession, service };
+    localStorage.setItem("applicantData", JSON.stringify(applicantData));
+
+    // Hide form
+    document.getElementById('prechat-form').style.display = 'none';
+
+    // Show chat input
+    document.getElementById('userInput').style.display = 'block';
+
+    // Send welcome message
+    const chatbox = document.getElementById('chatbox');
+    chatbox.innerHTML += `<div><b>Bot:</b> Thank you! How can I assist you today?</div>`;
+  }
+
+  // 📨 Chat function
   async function sendMessage() {
     const userInput = document.getElementById('userInput');
     const chatbox = document.getElementById('chatbox');
@@ -23,23 +85,31 @@
     userInput.value = '';
     chatbox.scrollTop = chatbox.scrollHeight;
 
-    try {
-        const res = await fetch('https://chlorophyllous-renee-unfairly.ngrok-free.dev/webhook/neac-chatbot', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, session_id: sessionId })
-        });
+    const applicantData = JSON.parse(localStorage.getItem("applicantData") || "{}");
 
-        const data = await res.json();
-        const markdown = data.reply || data.output || "Sorry, I didn’t receive a reply.";
-        const reply = marked.parse(markdown); // 🔹 convert Markdown to HTML
-        chatbox.innerHTML += `<div style="margin-top:5px;"><b>Bot:</b> ${reply}</div>`;
+    try {
+      const res = await fetch('https://chlorophyllous-renee-unfairly.ngrok-free.dev/webhook/neac-chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          session_id: sessionId,
+          applicant: applicantData // 🔥 Pre-chat info passed to backend
+        })
+      });
+
+      const data = await res.json();
+      const markdown = data.reply || data.output || "Sorry, I didn’t receive a reply.";
+      const reply = marked.parse(markdown);
+
+      chatbox.innerHTML += `<div style="margin-top:5px;"><b>Bot:</b> ${reply}</div>`;
     } catch (err) {
       console.error('Chatbot error:', err);
       chatbox.innerHTML += `<div style="color:red;">Error: Could not reach chatbot.</div>`;
     }
   }
 
+  // Enter key
   document.getElementById('userInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') sendMessage();
   });
